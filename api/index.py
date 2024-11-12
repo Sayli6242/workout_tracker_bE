@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes.route import router
-from fastapi.staticfiles import StaticFiles
+from api.routes.route import router
 import os
 
 app = FastAPI()
@@ -9,7 +8,10 @@ app = FastAPI()
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://workout-tracker-application-y4gq.vercel.app"],  # Update this with your frontend URL in production
+    allow_origins=[
+        "https://workout-tracker-application-y4gq.vercel.app",
+        # Add your frontend URL on Render if different
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -18,9 +20,5 @@ app.add_middleware(
 # Include your router
 app.include_router(router)
 
-# Mount static files - Note: In serverless, you'll need to handle static files differently
-if not os.environ.get("VERCEL"):
-    app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Required for Vercel
+# Required for Render
 app = app

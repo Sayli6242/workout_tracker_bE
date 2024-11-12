@@ -1,7 +1,7 @@
 # route.py
 from fastapi import APIRouter, HTTPException, status, UploadFile, File 
-from models.exercise import Exercise, Folder, Section, ExerciseUpdateRequest
-from config.database import db
+from api.models.exercise import Exercise, Folder, Section, ExerciseUpdateRequest
+from api.config.database import db
 from typing import List
 from bson import ObjectId
 from bson.errors import InvalidId
