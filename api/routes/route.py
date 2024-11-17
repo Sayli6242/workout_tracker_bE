@@ -1,7 +1,7 @@
 # route.py
 from fastapi import APIRouter, HTTPException, status, UploadFile, File 
-from models.exercise import Exercise, Folder, Section, ExerciseUpdateRequest
-from config.database import db
+from api.models.exercise import Exercise, Folder, Section, ExerciseUpdateRequest
+from api.config.database import db
 from typing import List
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -425,7 +425,54 @@ async def update_exercise(
         )
 
 
+@router.get("/api/exercises/{exercise_id}/image")
+async def get_image_by_id(exercise_id: str):
+    """
+    Get an image by its exercise id
+    """
+    try:
+        exercise = await db.exercises.find_one({"_id": ObjectId(exercise_id)})
+        if not exercise or not exercise.get("image_data"):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Exercise not found or no image"
+            )
+        return Response(
+            content=exercise["image_data"],
+            media_type="image/jpeg"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve image: {str(e)}"
+        )
 
+@router.put("/api/exercises/{exercise_id}/image")
+async def update_image_by_id(exercise_id: str, uploaded_image: UploadFile = File(...)):
+    """
+    Update an image by its exercise id
+    """
+    try:
+        # For serverless environment, store image in base64
+        image_contents = await uploaded_image.read()
+        image_base64 = base64.b64encode(image_contents).decode()
+
+        result = await db.exercises.update_one(
+            {"_id": ObjectId(exercise_id)},
+            {"$set": {"image_data": image_base64}}
+        )
+        if result.modified_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Exercise not found"
+            )
+
+        return {"message": "Image updated successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update image: {str(e)}"
+        )
 
 
 if __name__ == "__main__":
