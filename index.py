@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes.route import router
+from api.routes.route import router
 import os
 
 app = FastAPI()
@@ -9,6 +9,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        # "http://localhost:3001"
         "https://workout-tracker-application-y4gq.vercel.app",
         # Add your frontend URL on Render if different
     ],

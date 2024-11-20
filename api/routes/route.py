@@ -232,10 +232,37 @@ async def delete_section(relative_folder_id: str, section_id: str):
         )
 
 
+
+
+
+# Add an endpoint to retrieve the image separately
+@router.get("/api/exercises/{exercise_id}/image")
+async def get_exercise_image(exercise_id: str):
+    try:
+        exercise = await db.exercises.find_one({"_id": ObjectId(exercise_id)})
+        if not exercise or "image_data" not in exercise:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Image not found"
+            )
+        
+        return Response(
+            content=exercise["image_data"],
+            media_type="image/jpeg"  # Adjust based on your image type
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve image: {str(e)}"
+        )
+
+
+
+
+# Modify get_exercises to include image URL
 @router.get("/api/folders/{relative_folder_id}/sections/{section_id}/exercises", response_model=List[Exercise])
 async def get_exercises(relative_folder_id: str, section_id: str):
     try:
-        # First verify the section exists
         section = await db.sections.find_one({
             "_id": ObjectId(section_id),
             "folder_id": relative_folder_id
@@ -254,7 +281,8 @@ async def get_exercises(relative_folder_id: str, section_id: str):
                 "media_url": exercise.get("media_url", ""),
                 "section_id": exercise.get("section_id", ""),
                 "folder_id": exercise.get("folder_id", ""),
-                "description": exercise.get("description", "")
+                "description": exercise.get("description", ""),
+                "image_url": f"/api/exercises/{str(exercise.get('_id'))}/image" if exercise.get("image_data") else None
             })
         return exercises
     except InvalidId:
@@ -270,6 +298,7 @@ async def get_exercises(relative_folder_id: str, section_id: str):
             detail=f"Failed to retrieve exercises: {str(e)}"
         )
 
+# Modify get_exercise_details to include image URL
 @router.get("/api/folders/{relative_folder_id}/sections/{section_id}/exercises/{exercise_id}", response_model=Exercise)
 async def get_exercise_details(relative_folder_id: str, section_id: str, exercise_id: str):
     try:
@@ -286,15 +315,23 @@ async def get_exercise_details(relative_folder_id: str, section_id: str, exercis
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Exercise not found"
             )
-        return prepare_exercise(exercise)
+            
+        return {
+            "id": str(exercise.get("_id")),
+            "title": exercise.get("title", ""),
+            "media_url": exercise.get("media_url", ""),
+            "section_id": exercise.get("section_id", ""),
+            "folder_id": exercise.get("folder_id", ""),
+            "description": exercise.get("description", ""),
+            "image_url": f"/api/exercises/{exercise_id}/image" if exercise.get("image_data") else None
+        }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve exercise: {str(e)}"
         )
 
-
-
+# Modify create_exercise_in_section to return image URL
 @router.post("/api/folders/{relative_folder_id}/sections/{section_id}/exercises")
 async def create_exercise_in_section(
     relative_folder_id: str, 
@@ -303,7 +340,6 @@ async def create_exercise_in_section(
     uploaded_image: UploadFile = File(...)
 ):
     try:
-        # Verify section exists
         section = await db.sections.find_one({
             "_id": ObjectId(section_id), 
             "folder_id": relative_folder_id
@@ -316,9 +352,8 @@ async def create_exercise_in_section(
 
         exercise_data = json.loads(exercise)
         
-        # For serverless environment, store image in base64
         image_contents = await uploaded_image.read()
-        image_base64 = base64.b64encode(image_contents).decode()
+        image_base64_binary = Binary(image_contents)
         
         exercise_dict = {
             "title": exercise_data["title"],
@@ -326,7 +361,7 @@ async def create_exercise_in_section(
             "section_id": section_id,
             "folder_id": relative_folder_id,
             "description": exercise_data.get("description", ""),
-            "image_data": image_base64  # Store as base64 string
+            "image_data": image_base64_binary
         }
 
         result = await db.exercises.insert_one(exercise_dict)
@@ -337,7 +372,8 @@ async def create_exercise_in_section(
             "media_url": exercise_dict["media_url"],
             "section_id": exercise_dict["section_id"],
             "folder_id": exercise_dict["folder_id"],
-            "description": exercise_dict["description"]
+            "description": exercise_dict["description"],
+            "image_url": f"/api/exercises/{str(result.inserted_id)}/image"
         }
 
     except Exception as e:
@@ -346,7 +382,69 @@ async def create_exercise_in_section(
             detail=f"Failed to create exercise: {str(e)}"
         )
 
+# Modify update_exercise to return image URL
+@router.put("/api/folders/{relative_folder_id}/sections/{section_id}/exercises/{exercise_id}")
+async def update_exercise(
+    relative_folder_id: str,
+    section_id: str,
+    exercise_id: str,
+    exercise: str = Form(...),
+    uploaded_image: UploadFile = File(None)
+):
+    try:
+        existing_exercise = await db.exercises.find_one({
+            "_id": ObjectId(exercise_id),
+            "section_id": section_id
+        })
+        if not existing_exercise:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Exercise not found"
+            )
 
+        exercise_data = json.loads(exercise)
+        update_data = {
+            "title": exercise_data.get("title"),
+            "description": exercise_data.get("description")
+        }
+
+        if uploaded_image:
+            image_contents = await uploaded_image.read()
+            image_base64_binary = Binary(image_contents)
+            update_data.update({
+                "media_url": uploaded_image.filename,
+                "image_data": image_base64_binary
+            })
+
+        result = await db.exercises.update_one(
+            {"_id": ObjectId(exercise_id)},
+            {"$set": update_data}
+        )
+
+        if result.modified_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Exercise not found or no changes made"
+            )
+
+        updated_exercise = await db.exercises.find_one({"_id": ObjectId(exercise_id)})
+        return {
+            "message": "Exercise updated successfully",
+            "exercise": {
+                "id": str(updated_exercise["_id"]),
+                "title": updated_exercise.get("title", ""),
+                "media_url": updated_exercise.get("media_url", ""),
+                "section_id": updated_exercise.get("section_id", ""),
+                "folder_id": updated_exercise.get("folder_id", ""),
+                "description": updated_exercise.get("description", ""),
+                "image_url": f"/api/exercises/{exercise_id}/image" if updated_exercise.get("image_data") else None
+            }
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update exercise: {str(e)}"
+        )
 
 
 @router.delete("/api/folders/{relative_folder_id}/sections/{section_id}/exercises/{exercise_id}")
@@ -370,109 +468,74 @@ async def delete_exercise(relative_folder_id: str, section_id: str, exercise_id:
             detail=f"Failed to delete exercise: {str(e)}"
         )
 
-@router.put("/api/folders/{relative_folder_id}/sections/{section_id}/exercises/{exercise_id}")
-async def update_exercise(
-    relative_folder_id: str,
-    section_id: str,
-    exercise_id: str,
-    exercise: str = Form(...),
-    uploaded_image: UploadFile = File(None)
-):
-    try:
-        # Verify exercise exists
-        existing_exercise = await db.exercises.find_one({
-            "_id": ObjectId(exercise_id),
-            "section_id": section_id
-        })
-        if not existing_exercise:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Exercise not found"
-            )
+# @router.put("/api/folders/{relative_folder_id}/sections/{section_id}/exercises/{exercise_id}")
+# async def update_exercise(
+#     relative_folder_id: str,
+#     section_id: str,
+#     exercise_id: str,
+#     exercise: str = Form(...),
+#     uploaded_image: UploadFile = File(None)
+# ):
+#     try:
+#         # Verify exercise exists
+#         existing_exercise = await db.exercises.find_one({
+#             "_id": ObjectId(exercise_id),
+#             "section_id": section_id
+#         })
+#         if not existing_exercise:
+#             raise HTTPException(
+#                 status_code=status.HTTP_404_NOT_FOUND,
+#                 detail="Exercise not found"
+#             )
 
-        # Parse exercise data
-        exercise_data = json.loads(exercise)
-        update_data = {
-            "title": exercise_data.get("title"),
-            "description": exercise_data.get("description")
-        }
+#         # Parse exercise data
+#         exercise_data = json.loads(exercise)
+#         update_data = {
+#             "title": exercise_data.get("title"),
+#             "description": exercise_data.get("description")
+#         }
 
-        # If new image is uploaded, update the image data
-        if uploaded_image:
-            image_contents = await uploaded_image.read()
-            update_data.update({
-                "media_url": uploaded_image.filename,
-                "image_data": Binary(image_contents)
-            })
+#         # If new image is uploaded, update the image data
+#         if uploaded_image:
+#             image_contents = await uploaded_image.read()
+#             # Convert to binary base64 and store
+#             image_base64_binary = Binary(image_contents)
+#             update_data.update({
+#                 "media_url": uploaded_image.filename,
+#                 "image_data": image_base64_binary
+#             })
 
-        # Update exercise in database
-        result = await db.exercises.update_one(
-            {"_id": ObjectId(exercise_id)},
-            {"$set": update_data}
-        )
+#         # Update exercise in database
+#         result = await db.exercises.update_one(
+#             {"_id": ObjectId(exercise_id)},
+#             {"$set": update_data}
+#         )
 
-        if result.modified_count == 0:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Exercise not found or no changes made"
-            )
+#         if result.modified_count == 0:
+#             raise HTTPException(
+#                 status_code=status.HTTP_404_NOT_FOUND,
+#                 detail="Exercise not found or no changes made"
+#             )
 
-        return {"message": "Exercise updated successfully"}
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update exercise: {str(e)}"
-        )
-
-
-@router.get("/api/exercises/{exercise_id}/image")
-async def get_image_by_id(exercise_id: str):
-    """
-    Get an image by its exercise id
-    """
-    try:
-        exercise = await db.exercises.find_one({"_id": ObjectId(exercise_id)})
-        if not exercise or not exercise.get("image_data"):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Exercise not found or no image"
-            )
-        return Response(
-            content=exercise["image_data"],
-            media_type="image/jpeg"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve image: {str(e)}"
-        )
-
-@router.put("/api/exercises/{exercise_id}/image")
-async def update_image_by_id(exercise_id: str, uploaded_image: UploadFile = File(...)):
-    """
-    Update an image by its exercise id
-    """
-    try:
-        # For serverless environment, store image in base64
-        image_contents = await uploaded_image.read()
-        image_base64 = base64.b64encode(image_contents).decode()
-
-        result = await db.exercises.update_one(
-            {"_id": ObjectId(exercise_id)},
-            {"$set": {"image_data": image_base64}}
-        )
-        if result.modified_count == 0:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Exercise not found"
-            )
-
-        return {"message": "Image updated successfully"}
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update image: {str(e)}"
-        )
+#         # Fetch and return the updated exercise
+#         updated_exercise = await db.exercises.find_one({"_id": ObjectId(exercise_id)})
+#         return {
+#             "message": "Exercise updated successfully",
+#             "exercise": {
+#                 "id": str(updated_exercise["_id"]),
+#                 "title": updated_exercise.get("title", ""),
+#                 "media_url": updated_exercise.get("media_url", ""),
+#                 "section_id": updated_exercise.get("section_id", ""),
+#                 "folder_id": updated_exercise.get("folder_id", ""),
+#                 "description": updated_exercise.get("description", ""),
+                
+#             }
+#         }
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail=f"Failed to update exercise: {str(e)}"
+#         )
 
 
 if __name__ == "__main__":
