@@ -29,7 +29,7 @@ class Section(BaseModel):
         json_encoders = {
             ObjectId: str
         }
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "My Section",
                  "description": "Section description",

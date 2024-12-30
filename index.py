@@ -9,8 +9,8 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        # "http://localhost:3001"
-        "https://workout-tracker-application-y4gq.vercel.app",
+        "http://localhost:3001"
+        # "https://workout-tracker-application-y4gq.vercel.app",
         # Add your frontend URL on Render if different
     ],
     allow_credentials=True,
