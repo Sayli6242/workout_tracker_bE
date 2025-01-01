@@ -1,10 +1,10 @@
-# api/config/database.py
-from motor.motor_asyncio import AsyncIOMotorClient
+from supabase import create_client
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-MONGODB_URI = os.getenv("MONGODB_URI", "your_mongodb_uri")
-client = AsyncIOMotorClient(MONGODB_URI)
-db = client.mydatabase_db
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)

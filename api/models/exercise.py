@@ -1,61 +1,43 @@
 # exercise.py
 from pydantic import BaseModel
 from typing import Optional
-from bson import ObjectId
 from fastapi import UploadFile, File
+from datetime import datetime
+
 class Folder(BaseModel):
-    name: str  # Required field
-    # parent_id: Optional[str] = None  # Optional parent folder ID, defaults to None for root folders
-    description: Optional[str] = None  # Optional description field
-    id: Optional[str] = None  # Make id optional
-
-   
-    class Config:
-        # This allows the model to work with MongoDB's ObjectId
-        json_encoders = {
-            ObjectId: str
-        }
-
-class Section(BaseModel):
-    
+    id: Optional[str] = None
     name: str
     description: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+class Section(BaseModel):
     id: Optional[str] = None
-    folder_id: str # Required field - references the parent folder
-    
-    
-    
+    name: str
+    description: Optional[str] = None
+    folder_id: str
+    created_at: Optional[datetime] = None
+
     class Config:
-        json_encoders = {
-            ObjectId: str
-        }
         json_schema_extra = {
             "example": {
                 "name": "My Section",
-                 "description": "Section description",
+                "description": "Section description",
                 "folder_id": "folder_id_here"
             }
         }
 
 class Exercise(BaseModel):
     id: Optional[str] = None
-    title: str  # Required field
-    media_url: str  # Required field
-    section_id: str  # Required field - references the parent section
+    title: str
+    media_url: str
+    section_id: str
     folder_id: Optional[str] = None
     description: str
     upload_image: Optional[UploadFile] = None
-
+    created_at: Optional[datetime] = None
 
 class ExerciseUpdateRequest(BaseModel):
-    id : str 
-    title: str = None
-    description: str = None
-    uploaded_image: UploadFile = File(None)
-
-
-    class Config:
-        json_encoders = {
-            ObjectId: str
-        }
-        
+    id: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    uploaded_image: Optional[UploadFile] = File(None)
