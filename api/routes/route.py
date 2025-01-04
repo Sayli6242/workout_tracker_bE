@@ -1,157 +1,119 @@
-# route.py
-from fastapi import APIRouter, HTTPException, status, UploadFile, File
-from api.models.exercise import Exercise, Folder, Section, ExerciseUpdateRequest
-from api.config.database import supabase
+from fastapi import APIRouter, HTTPException, UploadFile, File, Depends
 from typing import List
-import traceback
-from datetime import datetime
-from fastapi import Form
-import json
+from ..config.database import supabase
+from ..models.exercise import (
+    FolderCreate, FolderResponse,
+    SectionCreate, SectionResponse,
+    ExerciseCreate, ExerciseResponse
+)
+from api.auth.auth_bearer import JWTBearer
+import magic
 import uuid
 
 router = APIRouter()
 
-async def upload_to_supabase_storage(file: UploadFile, bucket_name: str = "exercise-images") -> str:
-    """
-    Upload a file to Supabase Storage and return the public URL
-    """
+# Folder routes
+@router.post("/folders/", response_model=FolderResponse, dependencies=[Depends(JWTBearer())])
+async def create_folder(folder: FolderCreate, current_user: dict = Depends(JWTBearer())):
     try:
-        # Read file content
-        file_content = await file.read()
+        user_id = current_user.get("sub")
+        data = {
+            "name": folder.name,
+            "user_id": user_id
+        }
+        result = supabase.table("folders").insert(data).execute()
+        return result.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/folders/", response_model=List[FolderResponse], dependencies=[Depends(JWTBearer())])
+async def get_folders(current_user: dict = Depends(JWTBearer())):
+    try:
+        user_id = current_user.get("sub")
+        result = supabase.table("folders").select("*").eq("user_id", user_id).execute()
+        return result.data
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.put("/folders/{folder_id}/", response_model=FolderResponse, dependencies=[Depends(JWTBearer())])
+async def update_folder(folder_id: uuid.UUID, folder: FolderCreate, current_user: dict = Depends(JWTBearer())):
+    try:
+        user_id = current_user.get("sub")
+        data = {
+            "name": folder.name
+        }
+        result = supabase.table("folders").update(data).eq("id", folder_id).eq("user_id", user_id).execute()
+        return result.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/folders/{folder_id}/", response_model=bool, dependencies=[Depends(JWTBearer())])
+async def delete_folder(folder_id: uuid.UUID, current_user: dict = Depends(JWTBearer())):
+    try:
+        user_id = current_user.get("sub")
+        result = supabase.table("folders").delete().eq("id", folder_id).eq("user_id", user_id).execute()
+        return result.status_code == 200
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+# Section routes
+@router.post("/sections/", response_model=SectionResponse, dependencies=[Depends(JWTBearer())])
+async def create_section(section: SectionCreate):
+    try:
+        result = supabase.table("sections").insert(section.dict()).execute()
+        return result.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/folders/{folder_id}/sections/", response_model=List[SectionResponse], dependencies=[Depends(JWTBearer())])
+async def get_sections(folder_id: uuid.UUID):
+    try:
+        result = supabase.table("sections").select("*").eq("folder_id", str(folder_id)).execute()
+        return result.data
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# Exercise routes
+@router.post("/exercises/", response_model=ExerciseResponse, dependencies=[Depends(JWTBearer())])
+async def create_exercise(exercise: ExerciseCreate):
+    try:
+        result = supabase.table("exercises").insert(exercise.dict()).execute()
+        return result.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/sections/{section_id}/exercises/", response_model=List[ExerciseResponse], dependencies=[Depends(JWTBearer())])
+async def get_exercises(section_id: uuid.UUID):
+    try:
+        result = supabase.table("exercises").select("*").eq("section_id", str(section_id)).execute()
+        return result.data
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# Image upload route
+@router.post("/upload-image/", dependencies=[Depends(JWTBearer())])
+async def upload_image(file: UploadFile = File(...)):
+    try:
+        content = await file.read()
+        file_ext = file.filename.split('.')[-1].lower()
         
-        # Generate unique file name to avoid collisions
-        file_extension = file.filename.split('.')[-1]
-        unique_filename = f"{uuid.uuid4()}.{file_extension}"
+        # Basic file type check
+        allowed_extensions = ['jpg', 'jpeg', 'png', 'gif']
+        if file_ext not in allowed_extensions:
+            raise HTTPException(status_code=400, detail="File must be an image")
+        
+        file_path = f"exercises/{uuid.uuid4()}.{file_ext}"
         
         # Upload to Supabase Storage
-        result = supabase.storage.from_(bucket_name).upload(
-            unique_filename,
-            file_content
+        result = supabase.storage.from_("exercises").upload(
+            file_path,
+            content
         )
         
         # Get public URL
-        file_url = supabase.storage.from_(bucket_name).get_public_url(unique_filename)
+        public_url = supabase.storage.from_("exercises").get_public_url(file_path)
         
-        return file_url
+        return {"image_url": public_url}
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload file: {str(e)}"
-        )
-
-async def delete_from_supabase_storage(file_path: str, bucket_name: str = "exercise-images") -> None:
-    """
-    Delete a file from Supabase Storage
-    """
-    try:
-        # Extract filename from path
-        filename = file_path.split('/')[-1]
-        supabase.storage.from_(bucket_name).remove([filename])
-    except Exception as e:
-        print(f"Failed to delete file: {str(e)}")
-        # Don't raise exception as this is cleanup operation
-
-@router.post("/api/folders/{relative_folder_id}/sections/{section_id}/exercises")
-async def create_exercise_in_section(
-    relative_folder_id: str,
-    section_id: str,
-    exercise: str = Form(...),
-    uploaded_image: UploadFile = File(...)
-):
-    try:
-        exercise_data = json.loads(exercise)
-        
-        # Upload image to Supabase Storage
-        image_url = await upload_to_supabase_storage(uploaded_image)
-        
-        exercise_dict = {
-            "title": exercise_data["title"],
-            "media_url": image_url,  # Store the public URL instead of base64 data
-            "section_id": section_id,
-            "folder_id": relative_folder_id,
-            "description": exercise_data.get("description", "")
-        }
-
-        result = supabase.table('exercises').insert(exercise_dict).execute()
-        
-        return result.data[0]
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create exercise: {str(e)}"
-        )
-
-@router.put("/api/folders/{relative_folder_id}/sections/{section_id}/exercises/{exercise_id}")
-async def update_exercise(
-    relative_folder_id: str,
-    section_id: str,
-    exercise_id: str,
-    exercise: str = Form(...),
-    uploaded_image: UploadFile = File(None)
-):
-    try:
-        # Get existing exercise
-        existing_exercise = supabase.table('exercises').select("*").eq('id', exercise_id).execute()
-        if not existing_exercise.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Exercise not found"
-            )
-
-        exercise_data = json.loads(exercise)
-        update_data = {
-            "title": exercise_data.get("title"),
-            "description": exercise_data.get("description")
-        }
-
-        # If new image is uploaded
-        if uploaded_image:
-            # Delete old image if exists
-            old_media_url = existing_exercise.data[0].get('media_url')
-            if old_media_url:
-                await delete_from_supabase_storage(old_media_url)
-            
-            # Upload new image
-            new_image_url = await upload_to_supabase_storage(uploaded_image)
-            update_data["media_url"] = new_image_url
-
-        # Update exercise in database
-        result = supabase.table('exercises').update(update_data).eq('id', exercise_id).execute()
-
-        return {
-            "message": "Exercise updated successfully",
-            "exercise": result.data[0]
-        }
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update exercise: {str(e)}"
-        )
-
-@router.delete("/api/folders/{relative_folder_id}/sections/{section_id}/exercises/{exercise_id}")
-async def delete_exercise(relative_folder_id: str, section_id: str, exercise_id: str):
-    try:
-        # Get exercise details first
-        exercise = supabase.table('exercises').select("*").eq('id', exercise_id).execute()
-        if not exercise.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Exercise not found"
-            )
-
-        # Delete image from storage if exists
-        media_url = exercise.data[0].get('media_url')
-        if media_url:
-            await delete_from_supabase_storage(media_url)
-
-        # Delete exercise record
-        result = supabase.table('exercises').delete().eq('id', exercise_id).execute()
-        
-        return {"message": "Exercise deleted successfully"}
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete exercise: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=str(e))
