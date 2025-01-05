@@ -11,16 +11,21 @@ class JWTBearer(HTTPBearer):
         if credentials:
             if not credentials.scheme == "Bearer":
                 raise HTTPException(status_code=403, detail="Invalid authentication scheme.")
-            if not self.verify_jwt(credentials.credentials):
+            
+            decoded_token = self.verify_jwt(credentials.credentials)
+            if not decoded_token:
                 raise HTTPException(status_code=403, detail="Invalid token or expired token.")
-            # Add the user to the request state
-            request.state.user = verify_supabase_token(credentials.credentials)
-            return credentials.credentials
+                
+            return decoded_token
         else:
             raise HTTPException(status_code=403, detail="Invalid authorization code.")
 
-    def verify_jwt(self, token: str) -> bool:
+    def verify_jwt(self, token: str) -> dict:
         try:
-            return verify_supabase_token(token) is not None
-        except:
-            return 
+            decoded_token = verify_supabase_token(token)
+            if decoded_token is None:
+                return None
+            return decoded_token
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return None

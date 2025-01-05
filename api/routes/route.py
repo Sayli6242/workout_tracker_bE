@@ -16,29 +16,43 @@ router = APIRouter()
 @router.post("/folders/", response_model=FolderResponse, dependencies=[Depends(JWTBearer())])
 async def create_folder(folder: FolderCreate, current_user: dict = Depends(JWTBearer())):
     try:
-        user_id = current_user.get("sub")
+        if not current_user or not isinstance(current_user, dict):
+            raise HTTPException(status_code=401, detail="Invalid user token")
+            
+        user_id = current_user.get("id")  # Using id instead of sub
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User ID not found in token")
+            
         data = {
             "name": folder.name,
             "user_id": user_id
         }
+        print(f"Creating folder with data: {data}")  # Debug log
         result = supabase.table("folders").insert(data).execute()
+        if not result.data:
+            raise HTTPException(status_code=400, detail="Failed to create folder")
         return result.data[0]
     except Exception as e:
+        print(f"Error creating folder: {str(e)}")  # Debug log
         raise HTTPException(status_code=400, detail=str(e))
+
+
 
 @router.get("/folders/", response_model=List[FolderResponse], dependencies=[Depends(JWTBearer())])
 async def get_folders(current_user: dict = Depends(JWTBearer())):
     try:
-        user_id = current_user.get("sub")
+        user_id = current_user.get("id")
         result = supabase.table("folders").select("*").eq("user_id", user_id).execute()
         return result.data
     except Exception as e:
+        print(f"Error getting folders: {str(e)}")  # Debug log
+
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.put("/folders/{folder_id}/", response_model=FolderResponse, dependencies=[Depends(JWTBearer())])
+@router.put("/folders/{}}/", response_model=FolderResponse, dependencies=[Depends(JWTBearer())])
 async def update_folder(folder_id: uuid.UUID, folder: FolderCreate, current_user: dict = Depends(JWTBearer())):
     try:
-        user_id = current_user.get("sub")
+        user_id = current_user.get("id")
         data = {
             "name": folder.name
         }
