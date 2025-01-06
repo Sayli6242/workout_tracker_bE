@@ -49,35 +49,45 @@ async def get_folders(current_user: dict = Depends(JWTBearer())):
 
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.put("/folders/{}}/", response_model=FolderResponse, dependencies=[Depends(JWTBearer())])
-async def update_folder(folder_id: uuid.UUID, folder: FolderCreate, current_user: dict = Depends(JWTBearer())):
+@router.put("/folders/{id}/", response_model=FolderResponse, dependencies=[Depends(JWTBearer())])
+async def update_folder(id: uuid.UUID, folder: FolderCreate, current_user: dict = Depends(JWTBearer())):
     try:
         user_id = current_user.get("id")
         data = {
             "name": folder.name
         }
-        result = supabase.table("folders").update(data).eq("id", folder_id).eq("user_id", user_id).execute()
+        result = supabase.table("folders").update(data).eq("id", id).eq("user_id", user_id).execute()
         return result.data[0]
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.delete("/folders/{folder_id}/", response_model=bool, dependencies=[Depends(JWTBearer())])
-async def delete_folder(folder_id: uuid.UUID, current_user: dict = Depends(JWTBearer())):
+@router.delete("/folders/{id}/", response_model=bool, dependencies=[Depends(JWTBearer())])
+async def delete_folder(id: uuid.UUID, current_user: dict = Depends(JWTBearer())):
     try:
-        user_id = current_user.get("sub")
-        result = supabase.table("folders").delete().eq("id", folder_id).eq("user_id", user_id).execute()
-        return result.status_code == 200
+        user_id = current_user.get("id")
+        result = supabase.table("folders").delete().eq("id", id).eq("user_id", user_id).execute()
+        return len(result.data) > 0
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     
 # Section routes
-@router.post("/sections/", response_model=SectionResponse, dependencies=[Depends(JWTBearer())])
-async def create_section(section: SectionCreate):
+@router.post("/folders/{folder_id}/sections/", response_model=SectionResponse, dependencies=[Depends(JWTBearer())])
+async def create_section(folder_id:uuid.UUID , section: SectionCreate, current_user:dict = Depends(JWTBearer())):
     try:
-        result = supabase.table("sections").insert(section.dict()).execute()
+        user_id = current_user.get("id")
+        folder = supabase.table("folders").select("*").eq("id", folder_id).eq("user_id", user_id).execute()
+        if not folder.data:
+            raise HTTPException(status_code=404, detail="Folder not found")
+        section_data = {
+            "name" : section.name,
+            "description" : section.description,
+            "folder_id" : str(folder_id)
+        }
+        result = supabase.table("sections").insert(section_data).execute()
         return result.data[0]
     except Exception as e:
+        print("Error creating section:", str(e))
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/folders/{folder_id}/sections/", response_model=List[SectionResponse], dependencies=[Depends(JWTBearer())])

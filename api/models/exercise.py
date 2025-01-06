@@ -15,6 +15,7 @@ class FolderResponse(BaseModel):
 class SectionCreate(BaseModel):
     folder_id: UUID
     name: str
+    description: Optional[str]
 
 class SectionResponse(BaseModel):
     id: UUID
