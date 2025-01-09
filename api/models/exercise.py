@@ -13,14 +13,14 @@ class FolderResponse(BaseModel):
     created_at: datetime
 
 class SectionCreate(BaseModel):
-    folder_id: UUID
     name: str
-    description: Optional[str]
+    description: Optional[str] = None
 
 class SectionResponse(BaseModel):
+    section_id: UUID
     id: UUID
-    folder_id: UUID
     name: str
+    description: Optional[str]
     created_at: datetime
 
 class ExerciseCreate(BaseModel):
@@ -33,6 +33,6 @@ class ExerciseResponse(BaseModel):
     id: UUID
     section_id: UUID
     name: str
-    description: Optional[str]
-    image_url: Optional[str]
+    description: Optional[str] = None
+    image_url: Optional[str] = None
     created_at: datetime
