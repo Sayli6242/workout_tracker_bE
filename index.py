@@ -7,11 +7,7 @@ app = FastAPI()
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://workoutplanner-theta.vercel.app",
-        "https://workout-tracker-application-qk3w.vercel.app",  # Add your frontend domain
-        "http://localhost:5173",  # For local development
-    ],
+    allow_origins=["https://workoutplanner-theta.vercel.app"],  # Remove trailing slash
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -19,4 +15,4 @@ app.add_middleware(
 
 )
 
-app.include_router(route.router)
+app.include_router(route.router, prefix="/api")
