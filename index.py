@@ -7,7 +7,7 @@ app = FastAPI()
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://workoutplanner-theta.vercel.app/"],  # Add your React app URL
+    allow_origins=["https://workoutplanner-theta.vercel.app"],  # Remove trailing slash
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
