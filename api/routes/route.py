@@ -469,3 +469,8 @@ async def update_exercise(
     except Exception as e:
         print(f"Error updating exercise: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/health", tags=["Health"])
+async def health_check():
+    return {"status": "ok", "timestamp": datetime.datetime.now().isoformat()}
+
