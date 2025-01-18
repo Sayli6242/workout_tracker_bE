@@ -1,0 +1,36 @@
+name: Keep Server Alive
+
+on:
+  schedule:
+    - cron: '*/14 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send GET request
+        id: ping
+        run: |
+          response=$(curl -s --retry 3 https://fastapibackend-0kb9.onrender.com/api/health)
+          echo "Response: $response"
+          echo "response=$response" >> $GITHUB_ENV
+          
+      - name: Check response
+        run: |
+          if [[ "${{ env.response }}" != *"status"* ]]; then
+            echo "Server returned unexpected response"
+            exit 1
+          fi
+          
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Server Ping Failed',
+              body: 'The server health check failed. Please check the server status.'
+            })
