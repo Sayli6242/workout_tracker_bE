@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from api.routes import route
+from api.routes import logs
+from api.routes import measurements
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -8,9 +10,9 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://workout-tracker-application-qk3w.vercel.app",  # Add your frontend domain
+        # "https://workout-tracker-application-qk3w.vercel.app",  S# Add your frontend domain
         "http://localhost:3001", # For local development
-        "https://github.com"  # to allow github IP
+        # "https://github.com"  # to allow github IP
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -20,3 +22,9 @@ app.add_middleware(
 )
 
 app.include_router(route.router, prefix="/api")
+app.include_router(logs.router, prefix="/api")
+app.include_router(measurements.router, prefix="/api")
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
