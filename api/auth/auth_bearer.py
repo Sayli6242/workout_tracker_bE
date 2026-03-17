@@ -15,7 +15,9 @@ class JWTBearer(HTTPBearer):
             decoded_token = self.verify_jwt(credentials.credentials)
             if not decoded_token:
                 raise HTTPException(status_code=403, detail="Invalid token or expired token.")
-                
+
+            # Include raw token so routes can forward it to PocketBase
+            decoded_token["_token"] = credentials.credentials
             return decoded_token
         else:
             raise HTTPException(status_code=403, detail="Invalid authorization code.")
@@ -29,3 +31,8 @@ class JWTBearer(HTTPBearer):
         except Exception as e:
             print(f"An error occurred: {e}")
             return None
+
+
+
+
+            

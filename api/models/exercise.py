@@ -1,38 +1,53 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
-from uuid import UUID
 
 class FolderCreate(BaseModel):
     name: str
 
 class FolderResponse(BaseModel):
-    id: UUID
-    user_id: UUID
+    id: str
+    user_id: str
     name: str
-    created_at: datetime
+    created: str
+    updated: str
+
+    class Config:
+        extra = "allow"
 
 class SectionCreate(BaseModel):
     name: str
     description: Optional[str] = None
 
 class SectionResponse(BaseModel):
-    section_id: UUID
-    id: UUID
+    id: str
     name: str
-    description: Optional[str]
-    created_at: datetime
+    description: Optional[str] = None
+    section_id: Optional[str] = None
+    folder_id: Optional[str] = None
+    created: str
+    updated: str
+
+    class Config:
+        extra = "allow"
 
 class ExerciseCreate(BaseModel):
-    section_id: UUID
+    section_id: str
     name: str
     description: Optional[str] = None
     image_url: Optional[str] = None
 
 class ExerciseResponse(BaseModel):
-    id: UUID
-    section_id: UUID
+    id: str
+    section_id: str
     name: str
     description: Optional[str] = None
+    image: Optional[str] = None
     image_url: Optional[str] = None
-    created_at: datetime
+    collectionId: Optional[str] = None
+    collectionName: Optional[str] = None
+    created: str
+    updated: str
+
+    class Config:
+        extra = "allow"
