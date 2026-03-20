@@ -218,6 +218,8 @@ async def create_exercise(
     section_id: str = Path(...),
     name: str = Form(...),
     description: str = Form(None),
+    target_sets: int = Form(3),
+    target_reps: int = Form(10),
     image: UploadFile = File(None),
     current_user: dict = Depends(JWTBearer())
 ):
@@ -234,7 +236,8 @@ async def create_exercise(
             upload_response = requests.post(
                 "http://127.0.0.1:8090/api/collections/exercise/records",
                 files=files,
-                data={"name": name, "description": description or "", "section_id": section_id},
+                data={"name": name, "description": description or "", "section_id": section_id,
+                      "target_sets": target_sets, "target_reps": target_reps},
                 headers={"Authorization": f"Bearer {token}"}
             )
             result = upload_response.json()
@@ -245,7 +248,9 @@ async def create_exercise(
         exercise_data = {
             "section_id": section_id,
             "name": name,
-            "description": description or ""
+            "description": description or "",
+            "target_sets": target_sets,
+            "target_reps": target_reps,
         }
         result = pocketbase.table("exercise", token=token).insert(exercise_data)
         if not result.get("items"):
@@ -264,6 +269,8 @@ async def update_exercise(
     exercise_id: str = Path(...),
     name: str = Form(...),
     description: str = Form(None),
+    target_sets: int = Form(3),
+    target_reps: int = Form(10),
     image: UploadFile = File(None),
     current_user: dict = Depends(JWTBearer())
 ):
@@ -280,7 +287,8 @@ async def update_exercise(
             upload_response = requests.patch(
                 f"http://127.0.0.1:8090/api/collections/exercise/records/{exercise_id}",
                 files=files,
-                data={"name": name, "description": description or ""},
+                data={"name": name, "description": description or "",
+                      "target_sets": target_sets, "target_reps": target_reps},
                 headers={"Authorization": f"Bearer {token}"}
             )
             result = upload_response.json()
@@ -291,7 +299,9 @@ async def update_exercise(
         result = pocketbase.table("exercise", token=token).update({
             "id": exercise_id,
             "name": name,
-            "description": description or ""
+            "description": description or "",
+            "target_sets": target_sets,
+            "target_reps": target_reps,
         })
         if not result.get("items"):
             raise HTTPException(status_code=400, detail=f"Failed to update exercise: {result.get('error')}")

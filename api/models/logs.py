@@ -9,6 +9,7 @@ class ExerciseLogCreate(BaseModel):
     weight_kg: float
     notes: Optional[str] = ""
     logged_at: Optional[str] = ""
+    session_id: Optional[str] = ""
 
 
 class ExerciseLogResponse(BaseModel):
@@ -20,6 +21,7 @@ class ExerciseLogResponse(BaseModel):
     weight_kg: float
     notes: Optional[str] = ""
     logged_at: Optional[str] = ""
+    session_id: Optional[str] = ""
     created: Optional[str] = ""
     updated: Optional[str] = ""
 

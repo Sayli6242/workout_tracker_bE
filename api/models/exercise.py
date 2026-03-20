@@ -46,6 +46,8 @@ class ExerciseResponse(BaseModel):
     image_url: Optional[str] = None
     collectionId: Optional[str] = None
     collectionName: Optional[str] = None
+    target_sets: Optional[int] = 3
+    target_reps: Optional[int] = 10
     created: str
     updated: str
 
