@@ -46,7 +46,7 @@ class PocketBaseTable:
         result = response.json()
         if "id" in result:
             return {"items": [result]}
-        return {"items": [], "error": result}
+        raise ValueError(result)
 
     def update(self, data: Dict[str, Any]):
         record_id = data.pop("id", None)

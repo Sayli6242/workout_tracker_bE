@@ -3,6 +3,10 @@ from api.routes import route
 from api.routes import logs
 from api.routes import measurements
 from api.routes import sessions
+from api.routes import exercise_library
+from api.routes import templates
+from api.routes import active_workout
+from api.routes import personal_records
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -26,6 +30,10 @@ app.include_router(route.router, prefix="/api")
 app.include_router(logs.router, prefix="/api")
 app.include_router(measurements.router, prefix="/api")
 app.include_router(sessions.router, prefix="/api")
+app.include_router(exercise_library.router, prefix="/api")
+app.include_router(templates.router, prefix="/api")
+app.include_router(active_workout.router, prefix="/api")
+app.include_router(personal_records.router, prefix="/api")
 
 @app.get("/health")
 async def health_check():
