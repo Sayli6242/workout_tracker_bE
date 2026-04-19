@@ -34,11 +34,13 @@ async def create_template(template: TemplateCreate, current_user: dict = Depends
         data = {
             "user_id":                user_id,
             "name":                   template.name,
-            "workout_type":           template.workout_type or "",
             "estimated_duration_min": template.estimated_duration_min or 45,
             "difficulty":             template.difficulty or "intermediate",
-            "description":            template.description or "",
         }
+        if template.workout_type:
+            data["workout_type"] = template.workout_type
+        if template.description:
+            data["description"] = template.description
         result = pocketbase.table("workout_templates", token=token).insert(data)
         if not result.get("items"):
             raise HTTPException(status_code=400, detail="Failed to create template")

@@ -51,11 +51,12 @@ async def start_session(session: ActiveSessionCreate, current_user: dict = Depen
 
         data = {
             "user_id":      user_id,
-            "template_id":  session.template_id or "",
             "workout_name": session.workout_name,
             "started_at":   datetime.datetime.utcnow().isoformat() + "Z",
             "status":       "active",
         }
+        if session.template_id:
+            data["template_id"] = session.template_id
         result = pocketbase.table("active_workout_sessions", token=token).insert(data)
         if not result.get("items"):
             raise HTTPException(status_code=400, detail="Failed to start session")
